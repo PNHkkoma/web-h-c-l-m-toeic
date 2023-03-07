@@ -1,0 +1,86 @@
+<section class="bg-light" id="menu">
+    <h3 class="mt-4" style="color: black; margin-left: 15px;">Danh sách khóa học</h3>
+    <ul>
+        <li class="menu-item">
+            <div class="menu-title collapsed-section">
+                Khóa học ETS 2020
+            </div>
+            <div class="menu-details details-list collapsed">
+                <ul>
+                    <li class="test"><a href="#">Test 01</a></li>
+                    <li><a href="#">Test 02</a></li>
+                    <li><a href="#">Test 03</a></li>
+                    <li><a href="#">Test 04</a></li>
+                    <li><a href="#">Test 05</a></li>
+                </ul>
+            </div>
+        </li>
+        <li class="menu-item">
+            <div class="menu-title collapsed-section">
+                Khóa học ETS 2021
+            </div>
+
+        </li>
+        <li class="menu-item">
+            <div class="menu-title collapsed-section">
+                Khóa học LONGMAN MORE PRACTICES
+            </div>
+
+        </li>
+        <li class="menu-item">
+            <div class="menu-title collapsed-section">
+                Khóa học TNT TOEIC
+            </div>
+
+        </li>
+        <li class="menu-item">
+            <div class="menu-title collapsed-section">
+                Khóa học STARTER TOEIC
+            </div>
+
+        </li>
+        <li class="menu-item">
+            <div class="menu-title collapsed-section">
+                Khóa học SUCCEED IN TOEIC
+            </div>
+
+        </li>
+    </ul>
+</section>
+
+
+
+<section id="content">
+    <div class="mt-4">
+        <div class="row">
+            {{#each course}}
+            <div class="col-sm-6 col-lg-4">
+                <div class="card card-course-item">
+                    <a href="/courses/{{this.slug}}">
+                        <img class="card-img-top" src="{{this.image}}" alt="Card image cap">
+                    </a>
+                    <div class="card-body">
+                        <a href="/courses/{{this.slug}}">
+                            <h5 class="card-title">{{this.name}}</h5>
+                        </a>
+    
+                        <p class="card-text">{{this.descripsion}}</p>
+                        <a href="#" class="btn btn-primary">mua khóa học</a>
+                    </div>
+                </div>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+</section>
+
+<script>
+    const collapsedSections = document.querySelectorAll('.collapsed-section');
+        collapsedSections.forEach((section) => {
+            section.addEventListener('click', function (e) {
+                e.preventDefault();
+                const collapsedDiv = e.nextElementSibling;
+                collapsedDiv.classList.toggle('.collapsed');
+            });
+        });
+</script>
