@@ -7,7 +7,7 @@ Web có các chức năng như:
  - Làm bài học
 
  
-bcách chạy code:
+cách chạy code:
 - Bước 1:
 ```
 git clone 
