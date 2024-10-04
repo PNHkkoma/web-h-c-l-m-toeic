@@ -1,0 +1,216 @@
+import { AfterViewInit, Component, ElementRef, EventEmitter, Input, Output, Renderer2 } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { VtsIconModule } from '@ui-vts-kit/ng-vts/icon';
+import { VtsSwitchModule } from '@ui-vts-kit/ng-vts/switch';
+import { VtsTableLayout, VtsTableModule } from '@ui-vts-kit/ng-vts/table';
+import { FormsModule } from '@angular/forms';
+import { VtsPopconfirmModule } from '@ui-vts-kit/ng-vts/popconfirm';
+import { VtsButtonModule } from '@ui-vts-kit/ng-vts/button';
+import { VtsSelectModule } from '@ui-vts-kit/ng-vts/select';
+import { VtsPaginationModule } from '@ui-vts-kit/ng-vts/pagination';
+import { VtsToolTipModule } from '@ui-vts-kit/ng-vts/tooltip';
+import { DateArrayToStringPipe, DateFormat } from '@pvn/share/pipes';
+import { TranslateModule } from '@ngx-translate/core';
+import { PaginationComponent } from './pagination/pagination.component';
+import { Pageable } from './pagination/page';
+import { isNumber } from 'lodash';
+import { VtsModalModule } from '@ui-vts-kit/ng-vts/modal';
+import { Dictionary } from '../pvn-common-table/models/types';
+
+export interface TableConfig {
+  data: Array<any>;
+  total: number;
+  size: number;
+  title: string;
+  page: number;
+  multiple?: boolean;
+  columns: ColumnConfig[];
+  onChangePageSize: (size: number) => void;
+  onPaging: (page: number) => void;
+  layout?: VtsTableLayout;
+  loading?: boolean;
+  bordered?: boolean;
+}
+
+export interface ColumnConfig {
+  ellipsis?: boolean;
+  label: string;
+  field?: string;
+  getField?: (item: any) => string;
+  class?: string;
+  actions?: Array<Action>;
+  onSort?: () => void;
+  columnType?: ColumnType;
+  width?: string;
+  onClick?: (item: any) => void;
+  align?: 'left' | 'right' | 'center';
+  hideAction?: string[];
+}
+
+export interface Action {
+  label: string;
+  type?: string;
+  icon?: string;
+  title?: string;
+  disable?: boolean;
+  onClick: (item: any) => void;
+}
+
+export enum ColumnType {
+  TEXT = 'TEXT',
+  DATE = 'DATE',
+  DATETIME = 'DATETIME',
+  SWITCH = 'SWITCH',
+  LINK = 'LINK',
+  ACTIONS = 'ACTIONS',
+  DOCUMENTS = 'DOCUMENTS',
+  LEVEL = 'LEVEL'
+}
+
+/**
+ * @description: This component is used to render dynamic table
+ * @example: <lib-ui-table [tableConfig]="tableConfig"></lib-ui-table>
+ * @author: phamtrieulong2001
+ */
+@Component({
+  selector: 'lib-ui-table',
+  standalone: true,
+  imports: [
+    CommonModule,
+    VtsIconModule,
+    VtsSwitchModule,
+    VtsTableModule,
+    FormsModule,
+    VtsPopconfirmModule,
+    VtsButtonModule,
+    VtsSelectModule,
+    VtsPaginationModule,
+    VtsToolTipModule,
+    DateArrayToStringPipe,
+    TranslateModule,
+    PaginationComponent,
+    VtsModalModule
+  ],
+  templateUrl: './table.component.html',
+  styleUrls: ['./table.component.scss']
+})
+export class TableComponent {
+  @Input() tableConfig: TableConfig = {
+    data: [],
+    total: 0,
+    size: 10,
+    title: '',
+    loading: false,
+    page: 1,
+    multiple: false,
+    columns: [],
+    onChangePageSize: (size: number) => {
+    },
+    onPaging: (page: number) => {
+    },
+    layout: 'auto'
+  };
+  @Input() displayColumnSTT = true;
+  @Input() listIdHideDeleteButton!: string[];
+  @Output() rowChecked = new EventEmitter<any>();
+
+  checked = false;
+  indeterminate = false;
+
+  protected readonly isNumber = isNumber;
+
+  constructor() {}
+
+  applyTooltipConditionally(row: any, column: any): boolean {
+    const text = column?.getField ? column?.getField(row) : row[column.field];
+    return text && text.length >= 50;
+  }
+
+  handleChangePageSize(size: number) {
+    this.tableConfig.onChangePageSize(size);
+  }
+
+  handleChangePageIndex(page: number) {
+    this.tableConfig.onPaging(page);
+  }
+
+  handleChangePage(pageable: Pageable) {
+    if (this.tableConfig.size !== pageable.size) {
+      this.handleChangePageSize(pageable.size);
+    }
+    if (this.tableConfig.page !== pageable.page) {
+      this.handleChangePageIndex(pageable.page);
+    }
+  }
+
+  protected readonly ColumnType = ColumnType;
+  protected readonly DateFormat = DateFormat;
+
+  getPageable(): Pageable {
+    return {
+      page: this.tableConfig.page,
+      size: this.tableConfig.size,
+      sortDirection: 'ASC',
+      sortBy: '',
+      total: this.tableConfig.total
+    };
+  }
+
+  onAllChecked(checked: any): void {
+    this.tableConfig.data.forEach(({ id }) =>
+      this.updateCheckedSet(id, checked)
+    );
+    this.refreshCheckedStatus();
+  }
+
+  onItemChecked(id: any, checked: boolean): void {
+    this.updateCheckedSet(id, checked);
+    this.refreshCheckedStatus();
+  }
+
+  setOfCheckedId = new Set<any>();
+
+  updateCheckedSet(id: any, checked: boolean): void {
+    if (checked) {
+      this.setOfCheckedId.add(id);
+      this.rowChecked.emit(this.setOfCheckedId);
+    } else {
+      this.setOfCheckedId.delete(id);
+      this.rowChecked.emit(this.setOfCheckedId);
+    }
+  }
+
+  refreshCheckedStatus(): void {
+    const listOfEnabledData = this.tableConfig.data;
+    this.checked = listOfEnabledData.every(({ id }) =>
+      this.setOfCheckedId.has(id)
+    );
+    this.indeterminate =
+      listOfEnabledData.some(({ id }) => this.setOfCheckedId.has(id)) &&
+      !this.checked;
+  }
+
+  isModalVisible = false;
+  action?: Action;
+  rowData: any = null;
+
+  showConfirmModal(action: any, row: any): void {
+    this.action = action;
+    this.rowData = row;
+    this.isModalVisible = true;
+  }
+
+  handleOk(): void {
+    this.action?.onClick(this.rowData);
+    this.isModalVisible = false;
+  }
+
+  handleCancel(): void {
+    this.isModalVisible = false;
+  }
+
+  checkShowDeleteButton(data: Dictionary): boolean {
+    if (!this.listIdHideDeleteButton) return true;
+    return this.listIdHideDeleteButton.includes(data['id']);
+  }
+}
