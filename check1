@@ -1,0 +1,61 @@
+<ng-container *ngSwitchCase="ColumnType.SWITCH">
+          <td [vtsEllipsis]="column.ellipsis">
+            <div class="flex gap-4 items-center">
+              <vts-switch
+                *ngIf="column.field"
+                [(ngModel)]="row[column.field]"
+                disabled
+              ></vts-switch>
+              <div>
+                <ng-container
+                  *ngIf="column.field && row[column.field]; else elseBlock"
+                >
+                  {{ 'common.button.effective' | translate }}
+                </ng-container>
+                <ng-template #elseBlock>
+                  {{ 'common.button.noEffect' | translate }}
+                </ng-template>
+              </div>
+            </div>
+          </td>
+        </ng-container>
+        <ng-container *ngSwitchCase="ColumnType.ACTIONS">
+          <td class="action-center" vtsAlign="center">
+            <ng-container *ngFor="let action of column.actions">
+              <ng-container *ngIf="!row['hideAction']">
+                <ng-container *ngIf="action.label === 'Xóa'; else elseBlock">
+                  <a
+                    (click)="showConfirmModal(action, row)"
+                    *ngIf="action.icon && checkShowDeleteButton(row)"
+                    [disabled]="row.status === false"
+                    [vtsTooltipTitle]="'common.button.delete' | translate"
+                    vts-button
+                    vts-tooltip
+                    vtsType="link"
+                  >
+                    <i
+                      [ngClass]="
+                          row.status === false
+                            ? action.icon + ' disabled'
+                            : action.icon
+                        "
+                    ></i>
+                  </a>
+                </ng-container>
+                <ng-template #elseBlock>
+                  <a
+                    (click)="action.onClick(row)"
+                    *ngIf="action.icon"
+                    [disabled]="action.disable || false"
+                    [vtsTooltipTitle]="action.label"
+                    vts-button
+                    vts-tooltip
+                    vtsType="link"
+                  >
+                    <i [ngClass]="action.icon"></i>
+                  </a>
+                </ng-template>
+              </ng-container>
+            </ng-container>
+          </td>
+        </ng-container>
