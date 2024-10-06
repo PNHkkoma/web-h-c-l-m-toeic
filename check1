@@ -1,61 +1,51 @@
+<!--sử dụng ngSwitchCase để hiển thị phần này nếu giá trị của ColumnType bằng SWITCH-->
 <ng-container *ngSwitchCase="ColumnType.SWITCH">
-          <td [vtsEllipsis]="column.ellipsis">
-            <div class="flex gap-4 items-center">
-              <vts-switch
-                *ngIf="column.field"
-                [(ngModel)]="row[column.field]"
-                disabled
-              ></vts-switch>
-              <div>
-                <ng-container
-                  *ngIf="column.field && row[column.field]; else elseBlock"
-                >
-                  {{ 'common.button.effective' | translate }}
+    <!-- Một ô trong bảng (td), có thuộc tính vtsEllipsis để cắt văn bản dài và hiển thị dấu "..." 
+     khi nội dung vượt quá kích thước cho phép, giá trị được điều khiển bởi column.ellipsis-->
+    <td [vtsEllipsis]="column.ellipsis">
+        <!--được căn chỉnh bằng flexbox, với khoảng cách giữa các phần tử là 4px(theo giá trị của lớp gap-4)-->
+        <div class="flex gap-4 items-center">
+            <!--<vts-switch>: Đây là một thành phần switch (nút bật/tắt)
+                *ngIf="column.field": Hiển thị switch chỉ khi column.field có giá trị
+                [(ngModel)]="row[column.field]": Ràng buộc dữ liệu của switch với trường dữ liệu trong row, điều khiển trạng thái
+                bật/tắt của switch (tức là mình có thể phải dùng cái này nếu muốn ràng buộc dữ liệu)
+                disabled: Switch bị vô hiệu hóa, không cho phép người dùng thay đổi giá trị (như lúc mình thấy là ko bấm vào đc ấy, chắc sẽ tắt cái này đi)-->
+            <vts-switch *ngIf="column.field" [(ngModel)]="row[column.field]" disabled></vts-switch>
+            <div>
+                <!--Kiểm tra nếu có cả column.field và giá trị row[column.field] là true thì hiển thị nội dung trong ng-container-->
+                <ng-container *ngIf="column.field && row[column.field]; else elseBlock">
+                    {{ 'common.button.effective' | translate }}
                 </ng-container>
+                <!--ngược lại sẽ hiển thị elseBlock-->
                 <ng-template #elseBlock>
-                  {{ 'common.button.noEffect' | translate }}
+                    {{ 'common.button.noEffect' | translate }}
                 </ng-template>
-              </div>
             </div>
-          </td>
-        </ng-container>
-        <ng-container *ngSwitchCase="ColumnType.ACTIONS">
-          <td class="action-center" vtsAlign="center">
-            <ng-container *ngFor="let action of column.actions">
-              <ng-container *ngIf="!row['hideAction']">
+        </div>
+    </td>
+</ng-container>
+<ng-container *ngSwitchCase="ColumnType.ACTIONS">
+    <td class="action-center" vtsAlign="center">
+        <ng-container *ngFor="let action of column.actions">
+            <ng-container *ngIf="!row['hideAction']">
                 <ng-container *ngIf="action.label === 'Xóa'; else elseBlock">
-                  <a
-                    (click)="showConfirmModal(action, row)"
-                    *ngIf="action.icon && checkShowDeleteButton(row)"
-                    [disabled]="row.status === false"
-                    [vtsTooltipTitle]="'common.button.delete' | translate"
-                    vts-button
-                    vts-tooltip
-                    vtsType="link"
-                  >
-                    <i
-                      [ngClass]="
+                    <a (click)="showConfirmModal(action, row)" *ngIf="action.icon && checkShowDeleteButton(row)"
+                        [disabled]="row.status === false" [vtsTooltipTitle]="'common.button.delete' | translate"
+                        vts-button vts-tooltip vtsType="link">
+                        <i [ngClass]="
                           row.status === false
                             ? action.icon + ' disabled'
                             : action.icon
-                        "
-                    ></i>
-                  </a>
+                        "></i>
+                    </a>
                 </ng-container>
                 <ng-template #elseBlock>
-                  <a
-                    (click)="action.onClick(row)"
-                    *ngIf="action.icon"
-                    [disabled]="action.disable || false"
-                    [vtsTooltipTitle]="action.label"
-                    vts-button
-                    vts-tooltip
-                    vtsType="link"
-                  >
-                    <i [ngClass]="action.icon"></i>
-                  </a>
+                    <a (click)="action.onClick(row)" *ngIf="action.icon" [disabled]="action.disable || false"
+                        [vtsTooltipTitle]="action.label" vts-button vts-tooltip vtsType="link">
+                        <i [ngClass]="action.icon"></i>
+                    </a>
                 </ng-template>
-              </ng-container>
             </ng-container>
-          </td>
         </ng-container>
+    </td>
+</ng-container>
