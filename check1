@@ -1,4 +1,4 @@
-<!--sử dụng ngSwitchCase để hiển thị phần này nếu giá trị của ColumnType bằng SWITCH-->
+<!--sử dụng ngSwitchCase để hiển thị phần này nếu giá trị của ColumnType bằng SWITCH-->vádfádc
 <ng-container *ngSwitchCase="ColumnType.SWITCH">
     <!-- Một ô trong bảng (td), có thuộc tính vtsEllipsis để cắt văn bản dài và hiển thị dấu "..." 
      khi nội dung vượt quá kích thước cho phép, giá trị được điều khiển bởi column.ellipsis-->
