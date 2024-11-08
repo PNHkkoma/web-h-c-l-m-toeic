@@ -1,0 +1,255 @@
+<template>
+  <div class="dashboard-editor-container main-file-man-container">
+    <el-card class="box-card">
+      <el-row :gutter="10">
+        <el-col :xl="6" :lg="4" :md="4" :sm="24" :xs="24" class="tool-col">
+          <!-- Label cho input tìm kiếm -->
+          <label for="nameFilterInput">{{ "Tên báo cáo" }}</label>
+          <el-input
+            id="nameFilterInput"
+            size="small"
+            v-model="nameFilter"
+            clearable
+            :placeholder="$t('Search')"
+            suffix-icon="el-icon-search"
+            style="width: 100%;"
+          />
+        </el-col>
+
+        <el-col :xl="3" :lg="6" :md="6" :sm="24" :xs="24" class="tool-col">
+          <!-- Label cho loại chia sẻ -->
+          <label for="shareTypeFilterSelect" class="label-style">{{
+            "Năm báo cáo"
+          }}</label>
+          <el-select
+            id="shareTypeFilterSelect"
+            size="small"
+            v-model="shareTypeFilter"
+            style="width: 100%;"
+            @change="init()"
+          >
+            <!-- Các tùy chọn trong el-select -->
+          </el-select>
+        </el-col>
+
+        <el-col :xl="6" :lg="6" :md="6" :sm="24" :xs="24" class="tool-col">
+          <!-- Label cho sắp xếp -->
+          <label for="orderTypeFilterSelect" class="label-style">{{
+            "Kỳ báo cáo"
+          }}</label>
+          <el-select
+            id="orderTypeFilterSelect"
+            size="small"
+            v-model="orderTypeFilter"
+            style="width: 100%;"
+            @change="init()"
+          >
+            <!-- Các tùy chọn trong el-select -->
+          </el-select>
+        </el-col>
+
+        <el-col
+          :xl="6"
+          :lg="6"
+          :md="6"
+          :sm="24"
+          :xs="24"
+          align="right"
+          class="tool-col"
+          style="margin-top: 10px !important;"
+        >
+          <!-- v-if="
+              slug !== 'BASE-DIRECTORY' &&
+                ((meta.stacked_owner_usernames &&
+                  meta.stacked_owner_usernames.includes(
+                    ProcessMaker.user.username
+                  )) ||
+                  (meta.current_user_rights &&
+                    meta.current_user_rights.can_reshare == 1))
+            " -->
+          <b-button
+            class="file-storage-tool-btn"
+            style="background-color: #9d53fc; border: 1px solid #9d53fc;"
+            :title="$t('Share')"
+            size="sm"
+            variant="primary"
+            @click="openSharingDataDialog(info.slug, info.display_name)"
+          >
+            <!-- {{ $t('Share') }} -->
+            <i class="el-icon-share"></i>
+          </b-button>
+        </el-col>
+      </el-row>
+    </el-card>
+  </div>
+</template>
+
+<style lang="scss">
+$iconWidth: 72px;
+$miniIconWidth: 18px;
+
+$dzThumbnailWidth: 90px;
+$dzLineHeight: 1.2em;
+
+.main-file-man-container {
+  /* margin-top: 12px !important;
+    margin-right: 12px !important;
+    margin-left: 24px !important; */
+  // margin: 0 !important;
+  padding: 23px;
+  background-color: #f6f7ff;
+
+  .el-card.box-card {
+    .el-card__body {
+      .el-divider.el-divider--horizontal {
+        margin-top: 0 !important;
+        margin-bottom: 5px !important;
+      }
+
+      .el-breadcrumb {
+        .el-breadcrumb__item {
+          &:first-child {
+            .el-breadcrumb__separator {
+              opacity: 0;
+            }
+          }
+        }
+      }
+
+      .tool-col {
+        margin-bottom: 3px;
+
+        .file-storage-tool-btn {
+          margin: 0 0 0 6px;
+        }
+
+        .el-input {
+          border-radius: 1em;
+
+          input {
+            border-radius: 1em;
+          }
+        }
+
+        .b-dropdown {
+          button.btn-primary {
+            background-color: #9d53fc;
+            border: 1px solid #9d53fc;
+          }
+
+          button.btn-secondary {
+            background-color: #a6a6a6;
+            border: 1px solid #a6a6a6;
+          }
+        }
+      }
+
+      #file-storage-folder-content-container {
+        margin-top: 10px;
+
+        img.file-storage-icon-img-mini {
+          width: $miniIconWidth;
+          height: $miniIconWidth;
+        }
+
+        .deleted-item {
+          opacity: 0.25;
+        }
+
+        .file-storage-icon-container {
+          position: relative;
+          width: 100%;
+
+          img.file-storage-icon-img {
+            width: $iconWidth;
+            height: #{$iconWidth * 1.2};
+            margin-left: calc(50% - #{$iconWidth / 2});
+            object-fit: cover;
+          }
+
+          p.file-storage-icon-label {
+            margin: 10px 0 10px 0;
+            font-size: 0.8em;
+            text-align: center;
+            height: 3em;
+          }
+
+          .deleted-item {
+            opacity: 0.25;
+          }
+
+          .deleted-item-mark {
+            position: absolute;
+            top: #{$iconWidth / 3.6};
+            right: calc(50% - #{$iconWidth / 1.5});
+            font-size: #{$iconWidth / 2.5};
+            font-weight: bold;
+            color: #dc3545;
+            opacity: 0.8;
+          }
+
+          .shared-item-mark {
+            position: absolute;
+            top: #{$iconWidth / 3.6};
+            right: calc(50% - #{$iconWidth / 1.5});
+            font-size: #{$iconWidth / 2.5};
+            font-weight: bold;
+            color: #9d53fc;
+          }
+        }
+
+        .clickable {
+          cursor: pointer;
+        }
+
+        table {
+          thead {
+            tr {
+              th {
+                padding: 5px 0 5px 0;
+                background-color: #f2f2f2;
+
+                &:first-child {
+                  padding-left: 1.3em !important;
+                  border-top-left-radius: 1.3em;
+                  border-bottom-left-radius: 1.3em;
+
+                  div.cell {
+                    border-top-left-radius: 1.3em;
+                    border-bottom-left-radius: 1.3em;
+                  }
+                }
+
+                &:nth-last-child(2),
+                &:nth-last-child(1) {
+                  border-top-right-radius: 1.3em;
+                  border-bottom-right-radius: 1.3em;
+
+                  div.cell {
+                    border-top-right-radius: 1.3em;
+                    border-bottom-right-radius: 1.3em;
+                  }
+                }
+              }
+            }
+          }
+
+          tbody {
+            tr {
+              td {
+                padding: 5px 0 5px 0;
+
+                &:first-child {
+                  padding-left: 1.3em !important;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }}
+
+  
+</style>
+
