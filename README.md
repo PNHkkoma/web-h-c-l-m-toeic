@@ -30,7 +30,12 @@ use ProcessMaker\Imports\FileImport;
 
 class ComparativeReportController extends Controller
 {
-
+    protected $dataCumulativeTH = [];
+    protected $id_TH = [];
+    protected $dataCumulativeKH = [];
+    protected $id_KH = [];
+    protected $id_CC = [];
+    protected $id_N = [];
     //A vũ viết, lấy
     public function getSampleAdjustDataFile(Request $request)
     {
@@ -387,6 +392,7 @@ class ComparativeReportController extends Controller
             //read and save DB
             $bodyData = $request->except('file');
             Excel::import(new FileImport($bodyData), $request->file('file'));
+            DB::table('vtg_list_ke_hoach_khac')->insert((array)$record1);
             // Return the data as a JSON response to the frontend
             return response()->json(['message' => 'Import success'], 200);
         } catch (\Exception $e) {
@@ -521,32 +527,55 @@ class ComparativeReportController extends Controller
             abort(500);
         }
     }
-    public function showReportcomparative(Request $request)
+    public function showReportComparative(Request $request)
     {
-        //sau khi có đủ thông tin thì tìm kiếm trong báo cáo
-        $id1 = $request['id1'];
-        $id2 = $request['id2'];
-        //save db report with id1
-        $this->detailReport($id1);
-        //save db report with id2
-        $this->detailReport2($id2);
-        //save db with Discrepancy
+        try {
+            $id1 = $request->input('id1');
+            $id2 = $request->input('id2');
+            $value = [];
 
+            // Gọi hàm detailReport cho id1
+            //$result1 = $this->detailReport($id1);
+            //$result2 = $this->detailReport2($id2);
+            $result3 = $this->Discrepancy($id1, $id2);
+            $result4 = $this->growth_rate($id1, $id2);
+            $value[] = $result3;
+            $value[] = $result4;
+
+            // Gọi các hàm xử lý khác
+
+            return response()->json([
+                'message' => 'Successful.',
+                'data' => $value,
+            ]);
+        } catch (\Exception $e) {
+            // Hiển thị lỗi chi tiết
+            return response()->json([
+                'message' => 'There was an error processing the report.',
+                'error' => [
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ],
+            ], 500);
+        }
     }
     //dữ liệu thực hiện
     public function detailReport($id)
     {
         try {
             //từ id lấy dữ liệu báo cáo hợp nhất
-            $data = DB::table('vtg.hop_nhat')
-                ->where('process_id', $id)
+            $data = DB::table('baocao_hop_nhat')
+                ->where('Request_id', (int)$id)
                 ->orderBy('id', 'asc') // Sắp xếp theo id tăng dần (thứ tự mặc định)
                 ->get();
-            // Lặp qua từng bản ghi và chèn vào bảng mình muốn lưu nếu có cấu trúc giống bảng ban đầu
-            foreach ($data as $record) {
-                DB::table('target_table')->insert((array) $record);
+            if ($data->isEmpty()) {
+                return 'không có bản ghi tương ứng trong db';
             }
-            //$data = DB::table('your_table_name')->get();
+            // Lặp qua từng bản ghi và chèn vào bảng mình muốn lưu nếu có cấu trúc giống bảng ban đầu
+            /* foreach ($data as $record) {
+                DB::table('target_table')->insert((array) $record);
+            } */
             // Khởi tạo mảng để chứa các trường (column names) lấy từ hàng số 4
             // Tạo mảng $fields chỉ chứa 7 cột đầu tiên của từng bản ghi
             // Khởi tạo mảng trống để chứa kết quả
@@ -554,44 +583,40 @@ class ComparativeReportController extends Controller
             $value = [];
             // Dùng vòng for để lặp qua từng phần tử trong $data
             foreach ($data as $index => $item) {
-                $value[$item->company_id] = $item->value ?? null;
+                $value[$item->Company_id] = $item->value ?? null;
                 if (($index - 17) % 18 == 0) {
                     $fields[] = array_merge(
                         [
-                            'id' => $item->ID ?? null,             // Cột 1
-                            'report_name' => $item->report_name ?? null, // Cột 2
-                            'period_id' => $item->period_id ?? null,     // Cột 3
-                            'type_period' => $item->type_period ?? null, // Cột 4
-                            'month' => $item->month ?? null,             // Cột 5
-                            'year' => $item->year ?? null,               // Cột 6
-                            'code' => $item->code ?? null,               // Cột 7
+                            'id' => $item->id ?? null,             // Cột 1
+                            //'report_name' => $item->report_name ?? null, // Cột 2
+                            'Report_period' => $item->Report_period ?? null,     // Cột 3
+                            'Data_type' => $item->Data_type ?? null, // Cột 4
+                            'year' => $item->year ?? null,               // Cột 6            // Cột 7
                             'index' => $item->index ?? null,             // Cột 8
-                            'khoan_muc_id' => $item->khoan_muc_id ?? null,
+                            'Khoan_muc_id' => $item->Khoan_muc_id ?? null,
                             'total' => $item->total ?? null,
-                            'hop_nhat' => $item->hop_nhat ?? null,
-                            'hop_nhat_vtp' => $item->hop_nhat_vtp ?? null,
-                            'hop_nhat_tru_lo' => $item->hop_nhat_tru_lo ?? null,
+                            'Hop_nhat' => $item->Hop_nhat ?? null,
+                            'Hop_nhat_vtp' => $item->Hop_nhat_vtp ?? null,
+                            'Hop_nhat_tru_lo' => $item->Hop_nhat_tru_lo ?? null,
                             'vtg_no_dividend' => $item->vtg_no_dividend ?? null,
                             'vtg_dividend' => $item->vtg_dividend ?? null,
-                            'vtg_net' => $item->vtg_net ?? null,
-                            'dc_tt' => $item->dc_tt ?? null,
-                            'dc_cltg' => $item->dc_cltg ?? null,
-                            'dc_khac' => $item->dc_khac ?? null,
+                            'Vtg_net' => $item->vtg_net ?? null,
+                            'Vtg_adjust' => $item->Vtg_adjust ?? null,
+                            'Tt_adjust' => $item->Tt_adjust ?? null,
+                            'Cltg_adjust' => $item->Cltg_adjust ?? null,
+                            'Other_adjust' => $item->Other_adjust ?? null,
                         ],
-                        ['company_id' => $value]
+                        ['Company_id' => $value]
                     );
                     $value = [];
                 }
             }
             // Chèn vào bảng nguyên mẫu mong muốn
-            DB::table('report_data')->insert($fields);
+            //DB::table('report_data')->insert($fields);
             // Trả về kết quả
-            return response()->json([
-                'success' => true,
-                'data' => $fields
-            ]);
+            return $fields;
         } catch (Exception $e) {
-            abort(500);
+            return 'lỗi không xác định';
         }
     }
     //dữ liệu cùng kỳ tương tự dữ liệu thực hiện, khác ở cái đk lấy trong db có lẽ sẽ khác thôi
@@ -599,15 +624,17 @@ class ComparativeReportController extends Controller
     {
         try {
             //từ id lấy dữ liệu báo cáo hợp nhất
-            $data = DB::table('vtg.hop_nhat')
-                ->where('process_id', $id)
+            $data = DB::table('baocao_hop_nhat')
+                ->where('Request_id', (int)$id)
                 ->orderBy('id', 'asc') // Sắp xếp theo id tăng dần (thứ tự mặc định)
                 ->get();
-            // Lặp qua từng bản ghi và chèn vào bảng mình muốn lưu nếu có cấu trúc giống bảng ban đầu
-            foreach ($data as $record) {
-                DB::table('target_table')->insert((array) $record);
+            if ($data->isEmpty()) {
+                return 'không có bản ghi tương ứng trong db';
             }
-            //$data = DB::table('your_table_name')->get();
+            // Lặp qua từng bản ghi và chèn vào bảng mình muốn lưu nếu có cấu trúc giống bảng ban đầu
+            /* foreach ($data as $record) {
+                DB::table('target_table')->insert((array) $record);
+            } */
             // Khởi tạo mảng để chứa các trường (column names) lấy từ hàng số 4
             // Tạo mảng $fields chỉ chứa 7 cột đầu tiên của từng bản ghi
             // Khởi tạo mảng trống để chứa kết quả
@@ -615,45 +642,40 @@ class ComparativeReportController extends Controller
             $value = [];
             // Dùng vòng for để lặp qua từng phần tử trong $data
             foreach ($data as $index => $item) {
-                $value[$item->company_id] = $item->value ?? null;
-                if (($index - 17) % 18 == 0
-                ) {
+                $value[$item->Company_id] = $item->value ?? null;
+                if (($index - 17) % 18 == 0) {
                     $fields[] = array_merge(
                         [
-                            'id' => $item->ID ?? null,             // Cột 1
-                            'report_name' => $item->report_name ?? null, // Cột 2
-                            'period_id' => $item->period_id ?? null,     // Cột 3
-                            'type_period' => $item->type_period ?? null, // Cột 4
-                            'month' => $item->month ?? null,             // Cột 5
-                            'year' => $item->year ?? null,               // Cột 6
-                            'code' => $item->code ?? null,               // Cột 7
+                            'id' => $item->id ?? null,             // Cột 1
+                            //'report_name' => $item->report_name ?? null, // Cột 2
+                            'Report_period' => $item->Report_period ?? null,     // Cột 3
+                            'Data_type' => $item->Data_type ?? null, // Cột 4
+                            'year' => $item->year ?? null,               // Cột 6            // Cột 7
                             'index' => $item->index ?? null,             // Cột 8
-                            'khoan_muc_id' => $item->khoan_muc_id ?? null,
+                            'Khoan_muc_id' => $item->Khoan_muc_id ?? null,
                             'total' => $item->total ?? null,
-                            'hop_nhat' => $item->hop_nhat ?? null,
-                            'hop_nhat_vtp' => $item->hop_nhat_vtp ?? null,
-                            'hop_nhat_tru_lo' => $item->hop_nhat_tru_lo ?? null,
+                            'Hop_nhat' => $item->Hop_nhat ?? null,
+                            'Hop_nhat_vtp' => $item->Hop_nhat_vtp ?? null,
+                            'Hop_nhat_tru_lo' => $item->Hop_nhat_tru_lo ?? null,
                             'vtg_no_dividend' => $item->vtg_no_dividend ?? null,
                             'vtg_dividend' => $item->vtg_dividend ?? null,
-                            'vtg_net' => $item->vtg_net ?? null,
-                            'dc_tt' => $item->dc_tt ?? null,
-                            'dc_cltg' => $item->dc_cltg ?? null,
-                            'dc_khac' => $item->dc_khac ?? null,
+                            'Vtg_net' => $item->Vtg_net ?? null,
+                            'Vtg_adjust' => $item->Vtg_adjust ?? null,
+                            'Tt_adjust' => $item->Tt_adjust ?? null,
+                            'Cltg_adjust' => $item->Cltg_adjust ?? null,
+                            'Other_adjust' => $item->Other_adjust ?? null,
                         ],
-                        ['company_id' => $value]
+                        ['Company_id' => $value]
                     );
                     $value = [];
                 }
             }
             // Chèn vào bảng nguyên mẫu mong muốn
-            DB::table('report_data')->insert($fields);
+            //DB::table('report_data')->insert($fields);
             // Trả về kết quả
-            return response()->json([
-                'success' => true,
-                'data' => $fields
-            ]);
+            return $fields;
         } catch (Exception $e) {
-            abort(500);
+            return 'lỗi không xác định';
         }
     }
     //dữ liệu chênh lệch
@@ -661,58 +683,74 @@ class ComparativeReportController extends Controller
     {
         try {
             //từ id lấy dữ liệu báo cáo hợp nhất
-            $data1 = DB::table('vtg.hop_nhat')
-                ->where('process_id', $id1)
+            $data1 = DB::table('baocao_hop_nhat')
+                ->where('Request_id', (int)$id1)
                 ->orderBy('id', 'asc') // Sắp xếp theo id tăng dần (thứ tự mặc định)
                 ->get();
-            $data2 = DB::table('vtg.hop_nhat')
-                ->where('process_id', $id2)
+            if ($data1->isEmpty()) {
+                return 'không có bản ghi tương ứng trong db';
+            }
+            $data2 = DB::table('baocao_hop_nhat')
+                ->where('Request_id', (int)$id2)
                 ->orderBy('id', 'asc') // Sắp xếp theo id tăng dần (thứ tự mặc định)
                 ->get();
+            if ($data2->isEmpty()) {
+                return 'không có bản ghi tương ứng trong db';
+            }
             // Nếu chỉ cần tính toán và lưu thì sẽ lưu vào đây
             // Duyệt qua từng bản ghi trong data1
+            DB::table('bc_sosanh_chenhlech')->truncate();
             foreach ($data1 as $index => $record1) {
-                // Tìm bản ghi tương ứng trong data2 (có cùng id)
-                $record2 = $data2->firstWhere('id', $record1->id);
-
-                if ($record2) {
-                    // Tính toán sự khác biệt cho các trường value và target
-                    $record1->total = $record1->total - $record2->total;
-                    $record1->hop_nhat = $record1->hop_nhat - $record2->hop_nhat;
-                    $record1->hop_nhat_vtp = $record1->hop_nhat_vtp - $record2->hop_nhat_vtp;
-                    $record1->hop_nhat_tru_lo = $record1->hop_nhat_tru_lo - $record2->hop_nhat_tru_lo;
-                    $record1->vtg_no_dividend = $record1->vtg_no_dividend - $record2->vtg_no_dividend;
-                    $record1->vtg_dividend = $record1->vtg_dividend - $record2->vtg_dividend;
-                    $record1->vtg_net = $record1->vtg_net - $record2->vtg_net;
-                    $record1->dc_tt = $record1->dc_tt - $record2->dc_tt;
-                    $record1->dc_cltg = $record1->dc_cltg - $record2->dc_cltg;
-                    $record1->dc_khac = $record1->dc_khac - $record2->dc_khac;
-
-                    // Chèn bản ghi đã hợp nhất vào bảng target_table
-                    DB::table('target_table')->insert((array) $record1);
+                // Lấy bản ghi tương ứng trong $data2
+                $record2 = $data2->get($index);
+                if (!$record2) {
+                    continue; // Bỏ qua nếu không tìm thấy bản ghi
                 }
+
+                // Lặp lại cho các trường khác
+                $record1->total = (int) ($record1->total ?? 0) - (int) ($record2->total ?? 0);
+                $record1->Hop_nhat = (int) ($record1->Hop_nhat ?? 0) - (int) ($record2->Hop_nhat ?? 0);
+                $record1->Hop_nhat_vtp = (int) ($record1->Hop_nhat_vtp ?? 0) - (int) ($record2->Hop_nhat_vtp ?? 0);
+                $record1->Hop_nhat_tru_lo = (int) ($record1->Hop_nhat_tru_lo ?? 0) - (int) ($record2->Hop_nhat_tru_lo ?? 0);
+                $record1->Hop_nhat_vtp_tru_lo = (int) ($record1->_vtp ?? 0) - (int) ($record2->_vtp ?? 0);
+                $record1->vtg_no_dividend = (int) ($record1->vtg_no_dividend ?? 0) - (int) ($record2->vtg_no_dividend ?? 0);
+                $record1->vtg_dividend = (int) ($record1->vtg_dividend ?? 0) - (int) ($record2->vtg_dividend ?? 0);
+                $record1->Vtg_net = (int) ($record1->Vtg_net ?? 0) - (int) ($record2->Vtg_net ?? 0);
+                $record1->value = (int) ($record1->value ?? 0) - (int) ($record2->value ?? 0);
+                $record1->Vtg_adjust = (int) ($record1->Vtg_adjust ?? 0) - (int) ($record2->Vtg_adjust ?? 0);
+                $record1->Tt_adjust = (int) ($record1->Tt_adjust ?? 0) - (int) ($record2->Tt_adjust ?? 0);
+                $record1->Cltg_adjust = (int) ($record1->Cltg_adjust ?? 0) - (int) ($record2->Cltg_adjust ?? 0);
+                $record1->Other_adjust = (int) ($record1->Other_adjust ?? 0) - (int) ($record2->Other_adjust ?? 0);
+
+                // Chèn bản ghi đã hợp nhất vào bảng
+
+                unset($record1->id);
+                unset($record1->created_at);
+                unset($record1->updated_at);
+                //return $record1;
+                DB::table('bc_sosanh_chenhlech')->insert((array)$record1);
             }
+            return $data1;
             //ở đây đáng lẽ lấy cùng 1 db nhưng khác request_id
             //$data = DB::table('your_table_name')->where('request_id', 'A')->get();
             /* $data1 = DB::table('your_table_name')->get();
             $data2 = DB::table('your_table_name1')->get(); */
 
-            $fields = [];
+            /* $fields = [];
             $value = [];
-            // Dùng vòng for để lặp qua từng phần tử trong $data
             foreach ($data1 as $index => $item) {
                 $value[$item->company_id] = $item->value - $data2[$index]->value;
                 if (($index - 17) % 18 == 0) {
                     $fields[] = array_merge(
                         [
-                            'id' => $item->ID ?? null,             // Cột 1
-                            'report_name' => $item->report_name ?? null, // Cột 2
-                            'period_id' => $item->period_id ?? null,     // Cột 3
-                            'type_period' => $item->type_period ?? null, // Cột 4
-                            'month' => $item->month ?? null,             // Cột 5
-                            'year' => $item->year ?? null,               // Cột 6
-                            'code' => $item->code ?? null,               // Cột 7
-                            'index' => $item->index ?? null,             // Cột 8
+                            'id' => $item->ID ?? null,
+                            'report_name' => $item->report_name ?? null,
+                            'period_id' => $item->period_id ?? null,
+                            'type_period' => $item->type_period ?? null,
+                            'month' => $item->month ?? null,
+                            'year' => $item->year ?? null,
+                            'code' => $item->code ?? null,
+                            'index' => $item->index ?? null,
                             'khoan_muc_id' => $item->khoan_muc_id ?? null,
                             'total' => $item->total - $data2[$index]->total,
                             'hop_nhat' => $item->hop_nhat - $data2[$index]->hop_nhat,
@@ -730,13 +768,8 @@ class ComparativeReportController extends Controller
                     $value = [];
                 }
             }
-            // Chèn vào bảng nguyên mẫu mong muốn
             DB::table('report_data')->insert($fields);
-            // Trả về kết quả
-            return response()->json([
-                'success' => true,
-                'fields' => $fields
-            ]);
+            return $fields; */
         } catch (Exception $e) {
             abort(500);
         }
@@ -769,45 +802,60 @@ class ComparativeReportController extends Controller
     {
         try {
             //từ id lấy dữ liệu báo cáo hợp nhất
-            $data1 = DB::table('vtg.hop_nhat')
-                ->where('process_id', $id1)
+            $data1 = DB::table('baocao_hop_nhat')
+                ->where('Request_id', (int)$id1)
                 ->orderBy('id', 'asc') // Sắp xếp theo id tăng dần (thứ tự mặc định)
                 ->get();
-            $data2 = DB::table('vtg.hop_nhat')
-                ->where('process_id', $id2)
+            if ($data1->isEmpty()) {
+                return 'không có bản ghi tương ứng trong db';
+            }
+            $data2 = DB::table('baocao_hop_nhat')
+                ->where('Request_id', (int)$id2)
                 ->orderBy('id', 'asc') // Sắp xếp theo id tăng dần (thứ tự mặc định)
                 ->get();
+            if ($data2->isEmpty()) {
+                return 'không có bản ghi tương ứng trong db';
+            }
             // Nếu chỉ cần tính toán và lưu thì sẽ lưu vào đây
             // Duyệt qua từng bản ghi trong data1
+            DB::table('bc_sosanh_tyle')->truncate();
             foreach ($data1 as $index => $record1) {
-                // Tìm bản ghi tương ứng trong data2 (có cùng id)
-                $record2 = $data2->firstWhere('id', $record1->id);
-
-                if ($record2) {
-                    // Tính toán sự khác biệt cho các trường value và target
-                    $record1->total = $this->calculate($record1->total, $record2->total);
-                    $record1->hop_nhat = $this->calculate($record1->hop_nhat, $record2->hop_nhat);
-                    $record1->hop_nhat_vtp = $this->calculate($record1->hop_nhat_vtp, $record2->hop_nhat_vtp);
-                    $record1->hop_nhat_tru_lo = $this->calculate($record1->hop_nhat_tru_lo, $record2->hop_nhat_tru_lo);
-                    $record1->vtg_no_dividend = $this->calculate($record1->vtg_no_dividend, $record2->vtg_no_dividend);
-                    $record1->vtg_dividend = $this->calculate($record1->vtg_dividend, $record2->vtg_dividend);
-                    $record1->vtg_net = $this->calculate($record1->vtg_net, $record2->vtg_net);
-                    $record1->dc_tt = $this->calculate($record1->dc_tt, $record2->dc_tt);
-                    $record1->dc_cltg = $this->calculate($record1->dc_cltg, $record2->dc_cltg);
-                    $record1->dc_khac = $this->calculate($record1->dc_khac, $record2->dc_khac);
-
-                    // Chèn bản ghi đã hợp nhất vào bảng target_table
-                    DB::table('target_table')->insert((array) $record1);
+                // Lấy bản ghi tương ứng trong $data2
+                $record2 = $data2->get($index);
+                if (!$record2) {
+                    continue; // Bỏ qua nếu không tìm thấy bản ghi
                 }
+
+                // Sử dụng hàm calculate để thực hiện phép trừ
+                $record1->total = (int)$this->calculate($record1->total, $record2->total);
+                $record1->Hop_nhat = (int)$this->calculate($record1->Hop_nhat, $record2->Hop_nhat);
+                $record1->Hop_nhat_vtp = (int)$this->calculate($record1->Hop_nhat_vtp, $record2->Hop_nhat_vtp);
+                $record1->Hop_nhat_tru_lo = (int)$this->calculate($record1->Hop_nhat_tru_lo, $record2->Hop_nhat_tru_lo);
+                $record1->Hop_nhat_vtp_tru_lo = (int)$this->calculate($record1->Hop_nhat_vtp_tru_lo, $record2->Hop_nhat_vtp_tru_lo);
+                $record1->vtg_no_dividend = (int)$this->calculate($record1->vtg_no_dividend, $record2->vtg_no_dividend);
+                $record1->vtg_dividend = (int)$this->calculate($record1->vtg_dividend, $record2->vtg_dividend);
+                $record1->Vtg_net = (int)$this->calculate($record1->Vtg_net, $record2->Vtg_net);
+                $record1->value = (int)$this->calculate($record1->value, $record2->value);
+                $record1->Vtg_adjust = (int)$this->calculate($record1->Vtg_adjust, $record2->Vtg_adjust);
+                $record1->Tt_adjust = (int)$this->calculate($record1->Tt_adjust, $record2->Tt_adjust);
+                $record1->Cltg_adjust = (int)$this->calculate($record1->Cltg_adjust, $record2->Cltg_adjust);
+                $record1->Other_adjust = (int)$this->calculate($record1->Other_adjust, $record2->Other_adjust);
+
+                // Chèn bản ghi đã hợp nhất vào bảng
+                unset($record1->id);
+                unset($record1->created_at);
+                unset($record1->updated_at);
+
+                DB::table('bc_sosanh_tyle')->insert((array)$record1);
             }
+            return $data1;
             //ở đây đáng lẽ lấy cùng 1 db nhưng khác request_id
             //$data = DB::table('your_table_name')->where('request_id', 'A')->get();
             /* $data = DB::table('your_table_name')->get();
             $data_discrepancy = DB::table('your_table_name1')->get(); */
 
-            $fields = [];
+            /* $fields = [];
             $value = [];
-            // Dùng vòng for để lặp qua từng phần tử trong $data
             foreach ($data1 as $index => $item) {
                 $value[$item->company_id] = $this->calculate($item->value, $data2[$index]->value);
                 if (($index - 17) % 18 == 0) {
@@ -838,13 +886,11 @@ class ComparativeReportController extends Controller
                     $value = [];
                 }
             }
-            // Chèn vào bảng nguyên mẫu mong muốn
             DB::table('report_data')->insert($fields);
-            // Trả về kết quả
             return response()->json([
                 'success' => true,
                 'data' => $fields
-            ]);
+            ]); */
         } catch (Exception $e) {
             abort(500);
         }
@@ -968,7 +1014,7 @@ class ComparativeReportController extends Controller
             $elements = explode('/', $trimmedString);
             return response()->json([
                 'success' => true,
-                'department' => $query,
+                'data' => $query,
                 'elements' => $elements
             ]);
         }
@@ -1021,7 +1067,7 @@ class ComparativeReportController extends Controller
             $data = DB::table('process_requests')
                 ->where('application_id', 73)
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', [$period])
-                ->pluck('data');
+                ->get();
             if ($period == 'quarter')
                 $dataOther = DB::table('vtg_list_ke_hoach_khac')
                     ->where('year', $year)
@@ -1030,14 +1076,14 @@ class ComparativeReportController extends Controller
             if ($period == 'quarter') {
                 //xác định tồn tại thực hiện/kế hoạch
                 $execute = $data->filter(function ($item) use ($year, $quarter) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     return isset($decoded['loai_dl']) &&
                         $decoded['nam'] === $year &&
                         $decoded['quy'] === $quarter &&
                         ($decoded['loai_dl'] === '3' || $decoded['loai_dl'] === '4');
                 });
                 $plan = $data->filter(function ($item) use ($year, $quarter) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     return isset($decoded['loai_dl']) &&
                         $decoded['nam'] === $year &&
                         $decoded['quy'] === $quarter &&
@@ -1049,7 +1095,7 @@ class ComparativeReportController extends Controller
 
                 //xác định tồn tại thực hiện/thực hiện cùng kỳ
                 $executeSamePeriod = $data->filter(function ($item) use ($year, $quarter) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     return isset($decoded['loai_dl']) &&
                         (int)$decoded['nam'] === $year - 1 &&
                         $decoded['quy'] === $quarter &&
@@ -1061,7 +1107,7 @@ class ComparativeReportController extends Controller
 
                 //xác định tồn tại thực hiện/ liền kề
                 $adjacent = $data->filter(function ($item) use ($year, $quarter) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     if ($quarter == '1') {
                         return isset($decoded['loai_dl']) &&
                             (int)$decoded['nam'] === $year - 1 &&
@@ -1080,18 +1126,18 @@ class ComparativeReportController extends Controller
             } else if ($period == 'month') {
                 //xác định tồn tại thực hiện/kế hoạch
                 $commonData = $data->filter(function ($item) use ($year, $month) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     return isset($decoded['loai_dl']) &&
                         $decoded['thang'] === $month;
                 });
                 $execute = $commonData->filter(function ($item) use ($month, $year) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     return isset($decoded['loai_dl']) &&
                         $decoded['nam'] === $year &&
                         ($decoded['loai_dl'] === '3' || $decoded['loai_dl'] === '4');
                 });
                 $plan = $commonData->filter(function ($item) use ($month, $year) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     return isset($decoded['loai_dl']) &&
                         $decoded['nam'] === $year &&
                         $decoded['loai_dl'] === '1';
@@ -1102,7 +1148,7 @@ class ComparativeReportController extends Controller
 
                 //xác định tồn tại thực hiện/thực hiện cùng kỳ
                 $executeSamePeriod = $data->filter(function ($item) use ($year, $month) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     return isset($decoded['loai_dl']) &&
                         (int)$decoded['nam'] === $year - 1 &&
                         ($decoded['loai_dl'] === '3' || $decoded['loai_dl'] === '4');
@@ -1112,7 +1158,7 @@ class ComparativeReportController extends Controller
                 }
                 //xác định tồn tại thực hiện/ liền kề
                 $adjacent = $data->filter(function ($item) use ($year, $month) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     if ($month == '01') {
                         return isset($decoded['loai_dl']) &&
                             (int)$decoded['nam'] === $year - 1 &&
@@ -1136,15 +1182,23 @@ class ComparativeReportController extends Controller
                 $dataCumulativeTH = $this->getDataCumulativeTH($month);
                 $dataCumulativeKH = $this->getDataCumulativeKH($month);
                 $cumulativeTH = $commonData->filter(function ($item) use ($year, $dataCumulativeTH) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     return isset($decoded['loai_dl']) &&
                         $decoded['nam'] === $year &&
                         in_array($decoded['thang'], $dataCumulativeTH) &&
                         ($decoded['loai_dl'] === '3' || $decoded['loai_dl'] === '4');
                 });
-                for ($i = 0; $i < count($dataCumulativeTH[0]); $i++) {
+                if ($cumulativeTH->isEmpty()) {
+                    $satisfy1 == false;
+                    $satisfy2 == false;
+                    $satisfy3 == false;
+                    $satisfy4 == false;
+                } else {
+                    $id_TH[] = $cumulativeTH->first()?->id;
+                }
+                /* for ($i = 0; $i < count($dataCumulativeTH[0]); $i++) {
                     $cumulativeTH = $commonData->filter(function ($item) use ($year, $month, $i, $dataCumulativeTH) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         return isset($decoded['loai_dl']) &&
                             $decoded['nam'] === $year &&
                             $decoded['thang'] === $dataCumulativeTH[0][$i] &&
@@ -1156,15 +1210,15 @@ class ComparativeReportController extends Controller
                         $satisfy3 == false;
                         $satisfy4 == false;
                     }
-                }
+                } */
                 if (count($dataCumulativeTH[1]) > 0) {
                     $dataNew = DB::table('process_requests')
                         ->where('application_id', 73)
                         ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', ['quarter'])
                         ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [$year])
-                        ->pluck('data');
+                        ->get();
                     $cumulativeTH = $dataNew->filter(function ($item) use ($dataCumulativeTH) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         return isset($decoded['loai_dl']) &&
                             $decoded['quy'] === $dataCumulativeTH[1][0] &&
                             ($decoded['loai_dl'] === '3' || $decoded['loai_dl'] === '4');
@@ -1174,6 +1228,8 @@ class ComparativeReportController extends Controller
                         $satisfy2 == false;
                         $satisfy3 == false;
                         $satisfy4 == false;
+                    } else {
+                        $id_TH[] = $cumulativeTH->first()?->id;
                     }
                 }
                 if (count($dataCumulativeTH[2]) > 0) {
@@ -1183,7 +1239,7 @@ class ComparativeReportController extends Controller
                         ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [$year])
                         ->pluck('data');
                     $cumulativeTH = $dataNew->filter(function ($item) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         return isset($decoded['loai_dl']) &&
                             ($decoded['loai_dl'] === '3' || $decoded['loai_dl'] === '4');
                     });
@@ -1192,13 +1248,15 @@ class ComparativeReportController extends Controller
                         $satisfy2 == false;
                         $satisfy3 == false;
                         $satisfy4 == false;
+                    } else {
+                        $id_TH[] = $cumulativeTH->first()?->id;
                     }
                 }
 
                 //xác định tồn tại luỹ kế kế hoạch
                 for ($i = 0; $i < count($dataCumulativeKH[0]); $i++) {
                     $cumulativeTH = $commonData->filter(function ($item) use ($year, $i, $dataCumulativeTH) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         return isset($decoded['loai_dl']) &&
                             $decoded['nam'] === $year &&
                             $decoded['thang'] === $dataCumulativeTH[0][$i] &&
@@ -1206,6 +1264,8 @@ class ComparativeReportController extends Controller
                     });
                     if ($cumulativeTH->isEmpty()) {
                         $satisfy1 == false;
+                    } else {
+                        $id_KH[] = $cumulativeTH->first()?->id;
                     }
                 }
                 if (count($dataCumulativeKH[1]) > 0) {
@@ -1214,15 +1274,17 @@ class ComparativeReportController extends Controller
                             ->where('application_id', 73)
                             ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', ['quarter'])
                             ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [$year])
-                            ->pluck('data');
+                            ->get();
                         $cumulativeTH = $dataNew1->filter(function ($item) use ($dataCumulativeKH, $i) {
-                            $decoded = json_decode($item, true);
+                            $decoded = json_decode($item->data, true);
                             return isset($decoded['loai_dl']) &&
                                 $decoded['quy'] === $dataCumulativeKH[1][$i] &&
                                 ($decoded['loai_dl'] === '1');
                         });
                         if ($cumulativeTH->isEmpty()) {
                             $satisfy1 == false;
+                        } else {
+                            $id_KH[] = $cumulativeTH->first()?->id;
                         }
                     }
                 }
@@ -1230,7 +1292,7 @@ class ComparativeReportController extends Controller
                 //xác định tồn tại luỹ kế kế hoạch khác
                 /* for ($i = 0; $i < count($this->getDataCumulativeKH($month)[0]); $i++) {
                     $cumulativeTH = $dataOther->filter(function ($item) use ($year, $month, $i) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         return isset($decoded['loai_dl']) &&
                             $decoded['nam'] === $year &&
                             $decoded['thang'] === $this->getDataCumulativeTH($month)[0][$i] &&
@@ -1246,7 +1308,7 @@ class ComparativeReportController extends Controller
                             ->where('report_year', $year)
                             ->where('report_period', 'quarter');
                         $cumulativeTH = $dataNew1->filter(function ($item) use ($month, $i) {
-                            $decoded = json_decode($item, true);
+                            $decoded = json_decode($item->data, true);
                             return isset($decoded['loai_dl']) &&
                                 $decoded['quy'] === $this->getDataCumulativeKH($month)[1][$i];
                         });
@@ -1259,7 +1321,7 @@ class ComparativeReportController extends Controller
                 //xác định tồn tại luỹ kế thực hiện với cùng kỳ
                 for ($i = 0; $i < count($dataCumulativeTH[0]); $i++) {
                     $cumulativeTH = $data->filter(function ($item) use ($year, $i, $dataCumulativeTH) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         return isset($decoded['loai_dl']) &&
                             (int)$decoded['nam'] === $year - 1 &&
                             $decoded['thang'] === $dataCumulativeTH[0][$i] &&
@@ -1267,6 +1329,8 @@ class ComparativeReportController extends Controller
                     });
                     if ($cumulativeTH->isEmpty()) {
                         $satisfy3 == false;
+                    } else {
+                        $id_CC[] = $cumulativeTH->first()?->id;
                     }
                 }
                 if (count($dataCumulativeTH[1]) > 0) {
@@ -1274,15 +1338,17 @@ class ComparativeReportController extends Controller
                         ->where('application_id', 73)
                         ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', ['quarter'])
                         ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [(string)($year - 1)])
-                        ->pluck('data');
+                        ->get();
                     $cumulativeTH = $dataNew->filter(function ($item) use ($dataCumulativeTH) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         return isset($decoded['loai_dl']) &&
                             $decoded['quy'] === $dataCumulativeTH[1][0] &&
                             ($decoded['loai_dl'] === '3' || $decoded['loai_dl'] === '4');
                     });
                     if ($cumulativeTH->isEmpty()) {
                         $satisfy3 == false;
+                    } else {
+                        $id_CC[] = $cumulativeTH->first()?->id;
                     }
                 }
                 if (count($dataCumulativeTH[2]) > 0) {
@@ -1292,12 +1358,14 @@ class ComparativeReportController extends Controller
                         ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [(string)($year - 1)])
                         ->pluck('data');
                     $cumulativeTH = $dataNew->filter(function ($item) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         return isset($decoded['loai_dl']) &&
                             ($decoded['loai_dl'] === '3' || $decoded['loai_dl'] === '4');
                     });
                     if ($cumulativeTH->isEmpty()) {
                         $satisfy3 == false;
+                    } else {
+                        $id_CC[] = $cumulativeTH->first()?->id;
                     }
                 }
 
@@ -1314,13 +1382,13 @@ class ComparativeReportController extends Controller
             } else {
                 //xác định tồn tại thực hiện/kế hoạch
                 $execute = $data->filter(function ($item) use ($year) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     return isset($decoded['loai_dl']) &&
                         $decoded['nam'] === $year &&
                         ($decoded['loai_dl'] === '3' || $decoded['loai_dl'] === '4');
                 });
                 $plan = $data->filter(function ($item) use ($year) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     return isset($decoded['loai_dl']) &&
                         $decoded['nam'] === $year &&
                         $decoded['loai_dl'] === '1';
@@ -1331,7 +1399,7 @@ class ComparativeReportController extends Controller
 
                 //xác định tồn tại thực hiện/thực hiện cùng kỳ
                 $executeSamePeriod = $data->filter(function ($item) use ($year) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     return isset($decoded['loai_dl']) &&
                         (int)$decoded['nam'] === $year - 1 &&
                         ($decoded['loai_dl'] === '3' || $decoded['loai_dl'] === '4');
@@ -1342,7 +1410,7 @@ class ComparativeReportController extends Controller
 
                 //xác định tồn tại thực hiện/ liền kề
                 $adjacent = $data->filter(function ($item) use ($year, $period) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     if ($period == '9-fist-month' || 'year') {
                         return isset($decoded['loai_dl']) &&
                             (int)$decoded['nam'] === $year - 1 &&
@@ -1366,7 +1434,7 @@ class ComparativeReportController extends Controller
 
 
             $names = $data->map(function ($item) {
-                $decoded = json_decode($item, true); // Giải mã trực tiếp mỗi phần tử
+                $decoded = json_decode($item->data, true); // Giải mã trực tiếp mỗi phần tử
                 return [
                     'thang' => $decoded['thang'] ?? null,
                     'quy' => $decoded['quy'] ?? null,
@@ -1392,7 +1460,7 @@ class ComparativeReportController extends Controller
             abort(500);
         }
     }
-    public function getListCodes(Request $request)
+    public function getListCodes()
     {
         try {
             $codes = DB::table('khoan_muc')->get();
@@ -1430,18 +1498,18 @@ class ComparativeReportController extends Controller
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', [$period])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.thang")) = ?', [$month])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [$year])
-                ->pluck('data');
+                ->get();
         } else if ($period == 'quarter') {
             $data = DB::table('process_requests')
                 ->where('application_id', 73)
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', [$period])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.quy")) = ?', [$quarter])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [$year])
-                ->pluck('data');
+                ->get();
         }
         //nếu có N3
         $nameRequirement = $data->filter(function ($item) {
-            $decoded = json_decode($item, true);
+            $decoded = json_decode($item->data, true);
             if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                 return isset($decoded['loai_dl']) &&
                     $decoded['ktth_vtg_pd'] == 1 &&
@@ -1454,7 +1522,7 @@ class ComparativeReportController extends Controller
         //ko có thì kiếm N25
         if ($nameRequirement->isEmpty()) {
             $nameRequirement = $data->filter(function ($item) {
-                $decoded = json_decode($item, true);
+                $decoded = json_decode($item->data, true);
                 if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                     return $decoded['ktth_vtg_pd'] == 1 &&
                         $decoded['loai_dl'] == 4;
@@ -1471,12 +1539,12 @@ class ComparativeReportController extends Controller
             ]);
         }
         $names = $nameRequirement->map(function ($item) {
-            $decoded = json_decode($item, true); // Giải mã trực tiếp mỗi phần tử
+            $decoded = json_decode($item->data, true); // Giải mã trực tiếp mỗi phần tử
             return [
                 'name' => $decoded['name'] ?? null,
-                'id' => $decoded['id'] ?? null,
+                'id' => $item->id ?? null,
             ];
-        });
+        })->values()->toArray();
         return response()->json([
             'success' => true,
             'data' => $names
@@ -1501,25 +1569,25 @@ class ComparativeReportController extends Controller
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', [$period])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.thang")) = ?', [$month])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [$year])
-                ->pluck('data');
+                ->get();
         } else if ($period == 'quarter') {
             $data = DB::table('process_requests')
                 ->where('application_id', 73)
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', [$period])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.quy")) = ?', [$quarter])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [$year])
-                ->pluck('data');
+                ->get();
         } else {
             $data = DB::table('process_requests')
                 ->where('application_id', 73)
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', [$period])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [$year])
-                ->pluck('data');
+                ->get();
         }
 
         //nếu có N3
         $nameRequirement = $data->filter(function ($item) {
-            $decoded = json_decode($item, true);
+            $decoded = json_decode($item->data, true);
             if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                 return isset($decoded['loai_dl']) &&
                     $decoded['ktth_vtg_pd'] == 1 &&
@@ -1557,9 +1625,12 @@ class ComparativeReportController extends Controller
 
         if ($nameRequirement->isNotEmpty()) {
             $names = $nameRequirement->map(function ($item) {
-                $decoded = json_decode($item, true); // Giải mã trực tiếp mỗi phần tử
-                return $decoded['name'] ?? null;
-            });
+                $decoded = json_decode($item->data, true); // Giải mã trực tiếp mỗi phần tử
+                return [
+                    'name' => $decoded['name'] ?? null,
+                    'id' => $item->id ?? null,
+                ];
+            })->values()->toArray();
         }
 
         /* if($dataOther->isNotEmpty()) {
@@ -1591,24 +1662,24 @@ class ComparativeReportController extends Controller
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', [$period])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.thang")) = ?', [$month])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [(int)($year - 1)])
-                ->pluck('data');
+                ->get();
         } else if ($period == 'quarter') {
             $data = DB::table('process_requests')
                 ->where('application_id', 73)
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', [$period])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.quy")) = ?', [$quarter])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [(int)($year - 1)])
-                ->pluck('data');
+                ->get();
         } else {
             $data = DB::table('process_requests')
                 ->where('application_id', 73)
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', [$period])
                 ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [(int)($year - 1)])
-                ->pluck('data');
+                ->get();
         }
         //nếu có N3
         $nameRequirement = $data->filter(function ($item) {
-            $decoded = json_decode($item, true);
+            $decoded = json_decode($item->data, true);
             if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                 return isset($decoded['loai_dl']) &&
                     $decoded['ktth_vtg_pd'] == 1 &&
@@ -1621,7 +1692,7 @@ class ComparativeReportController extends Controller
         //ko có thì kiếm N25
         if ($nameRequirement->isEmpty()) {
             $nameRequirement = $data->filter(function ($item) {
-                $decoded = json_decode($item, true);
+                $decoded = json_decode($item->data, true);
                 if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                     return isset($decoded['loai_dl']) &&
                         $decoded['ktth_vtg_pd'] == 1 &&
@@ -1639,9 +1710,12 @@ class ComparativeReportController extends Controller
             ]);
         }
         $names = $nameRequirement->map(function ($item) {
-            $decoded = json_decode($item, true); // Giải mã trực tiếp mỗi phần tử
-            return $decoded['name'] ?? null;
-        });
+            $decoded = json_decode($item->data, true); // Giải mã trực tiếp mỗi phần tử
+            return [
+                'name' => $decoded['name'] ?? null,
+                'id' => $item->id ?? null,
+            ];
+        })->values()->toArray();
         return response()->json([
             'success' => true,
             'data' => $names
@@ -1661,15 +1735,16 @@ class ComparativeReportController extends Controller
         $period = $this->handleTypePeriod($typePeriod)[0];
         $quarter = $this->handleTypePeriod($typePeriod)[2];
         $month = $this->handleTypePeriod($typePeriod)[1];
+        //ở đây nếu period có giá trị null thì câu truy vấn sẽ gây lỗi
         $data = DB::table('process_requests')
             ->where('application_id', 73)
             ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', [$period])
-            ->pluck('data');
+            ->get();
         if ($period == 'month') {
             if ($month == '01') {
                 //nếu có N3
                 $nameRequirement = $data->filter(function ($item) use ($year, $month) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                         return isset($decoded['loai_dl']) &&
                             (int)$decoded['nam'] == $year - 1 &&
@@ -1686,7 +1761,7 @@ class ComparativeReportController extends Controller
                 //ko có thì kiếm N25
                 if ($nameRequirement->isEmpty()) {
                     $nameRequirement = $data->filter(function ($item) use ($year) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                             return isset($decoded['loai_dl']) &&
                                 (int)$decoded['nam'] == $year - 1 &&
@@ -1704,7 +1779,7 @@ class ComparativeReportController extends Controller
             } else {
                 //nếu có N3
                 $nameRequirement = $data->filter(function ($item) use ($year, $month) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                         return isset($decoded['loai_dl']) &&
                             $decoded['nam'] == $year &&
@@ -1721,7 +1796,7 @@ class ComparativeReportController extends Controller
                 //ko có thì kiếm N25
                 if ($nameRequirement->isEmpty()) {
                     $nameRequirement = $data->filter(function ($item) use ($year, $month) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                             return isset($decoded['loai_dl']) &&
                                 $decoded['nam'] == $year &&
@@ -1741,7 +1816,7 @@ class ComparativeReportController extends Controller
             if ($quarter == '1') {
                 //nếu có N3
                 $nameRequirement = $data->filter(function ($item) use ($year, $month) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                         return isset($decoded['loai_dl']) &&
                             (int)$decoded['nam'] == $year - 1 &&
@@ -1758,7 +1833,7 @@ class ComparativeReportController extends Controller
                 //ko có thì kiếm N25
                 if ($nameRequirement->isEmpty()) {
                     $nameRequirement = $data->filter(function ($item) use ($year) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                             return isset($decoded['loai_dl']) &&
                                 (int)$decoded['nam'] == $year - 1 &&
@@ -1776,7 +1851,7 @@ class ComparativeReportController extends Controller
             } else {
                 //nếu có N3
                 $nameRequirement = $data->filter(function ($item) use ($year, $quarter) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                         return isset($decoded['loai_dl']) &&
                             $decoded['nam'] == $year &&
@@ -1793,7 +1868,7 @@ class ComparativeReportController extends Controller
                 //ko có thì kiếm N25
                 if ($nameRequirement->isEmpty()) {
                     $nameRequirement = $data->filter(function ($item) use ($year, $quarter) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                             return isset($decoded['loai_dl']) &&
                                 $decoded['nam'] == $year &&
@@ -1818,7 +1893,7 @@ class ComparativeReportController extends Controller
                     ->pluck('data');
                 //nếu có N3
                 $nameRequirement = $dataNew->filter(function ($item) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                         return isset($decoded['loai_dl']) &&
                             $decoded['ktth_vtg_pd'] == 1 &&
@@ -1831,7 +1906,7 @@ class ComparativeReportController extends Controller
                 //ko có thì kiếm N25
                 if ($nameRequirement->isEmpty()) {
                     $nameRequirement = $data->filter(function ($item) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                             return isset($decoded['loai_dl']) &&
                                 $decoded['ktth_vtg_pd'] == 1 &&
@@ -1848,18 +1923,18 @@ class ComparativeReportController extends Controller
                         ->where('application_id', 73)
                         ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', ['6-last-month'])
                         ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [(int)($year - 1)])
-                        ->pluck('data');
+                        ->get();
                 } else {
                     $dataNew = DB::table('process_requests')
                         ->where('application_id', 73)
                         ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.ky_bc")) = ?', [$typePeriod])
                         ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.nam")) = ?', [(int)($year - 1)])
-                        ->pluck('data');
+                        ->get();
                 }
 
                 //nếu có N3
                 $nameRequirement = $dataNew->filter(function ($item) {
-                    $decoded = json_decode($item, true);
+                    $decoded = json_decode($item->data, true);
                     if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                         return isset($decoded['loai_dl']) &&
                             $decoded['ktth_vtg_pd'] == 1 &&
@@ -1872,7 +1947,7 @@ class ComparativeReportController extends Controller
                 //ko có thì kiếm N25
                 if ($nameRequirement->isEmpty()) {
                     $nameRequirement = $data->filter(function ($item) {
-                        $decoded = json_decode($item, true);
+                        $decoded = json_decode($item->data, true);
                         if (isset($decoded['ktth_vtg_pd']) && $decoded['ktth_vtg_pd'] == 1) {
                             return isset($decoded['loai_dl']) &&
                                 $decoded['ktth_vtg_pd'] == 1 &&
@@ -1893,9 +1968,12 @@ class ComparativeReportController extends Controller
             ]);
         }
         $names = $nameRequirement->map(function ($item) {
-            $decoded = json_decode($item, true); // Giải mã trực tiếp mỗi phần tử
-            return $decoded['name'] ?? null;
-        });
+            $decoded = json_decode($item->data, true); // Giải mã trực tiếp mỗi phần tử
+            return [
+                'name' => $decoded['name'] ?? null,
+                'id' => $item->id ?? null,
+            ];
+        })->values()->toArray();
         return response()->json([
             'success' => true,
             'data' => $names
